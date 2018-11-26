@@ -7,20 +7,23 @@ import (
 	"time"
 )
 
-// Timing maintains time Durations for each time bucket.
-// The Durations are kept in an array to allow for a variety of
-// statistics to be calculated from the source data.
-type Timing struct {
-	Buckets map[int64]*timingBucket
-	Mutex   *sync.RWMutex
+type (
+	durations []time.Duration
+	// Timing maintains time Durations for each time bucket.
+	// The Durations are kept in an array to allow for a variety of
+	// statistics to be calculated from the source data.
+	Timing struct {
+		Buckets map[int64]*timingBucket
+		Mutex   *sync.RWMutex
 
-	CachedSortedDurations []time.Duration
-	LastCachedTime        int64
-}
+		CachedSortedDurations durations
+		LastCachedTime        int64
+	}
 
-type timingBucket struct {
-	Durations []time.Duration
-}
+	timingBucket struct {
+		Durations durations
+	}
+)
 
 // NewTiming creates a RollingTiming struct.
 func NewTiming() *Timing {
@@ -31,15 +34,13 @@ func NewTiming() *Timing {
 	return r
 }
 
-type byDuration []time.Duration
-
-func (c byDuration) Len() int           { return len(c) }
-func (c byDuration) Swap(i, j int)      { c[i], c[j] = c[j], c[i] }
-func (c byDuration) Less(i, j int) bool { return c[i] < c[j] }
+func (c durations) Len() int           { return len(c) }
+func (c durations) Swap(i, j int)      { c[i], c[j] = c[j], c[i] }
+func (c durations) Less(i, j int) bool { return c[i] < c[j] }
 
 // SortedDurations returns an array of time.Duration sorted from shortest
 // to longest that have occurred in the last 60 seconds.
-func (r *Timing) SortedDurations() []time.Duration {
+func (r *Timing) SortedDurations() durations {
 	r.Mutex.RLock()
 	t := r.LastCachedTime
 	r.Mutex.RUnlock()
@@ -49,7 +50,7 @@ func (r *Timing) SortedDurations() []time.Duration {
 		return r.CachedSortedDurations
 	}
 
-	var durations byDuration
+	var durations durations
 	now := time.Now()
 
 	r.Mutex.Lock()

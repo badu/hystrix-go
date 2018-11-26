@@ -6,31 +6,33 @@ import (
 	"github.com/afex/hystrix-go/hystrix/rolling"
 )
 
-// DefaultMetricCollector holds information about the circuit state.
-// This implementation of MetricCollector is the canonical source of information about the circuit.
-// It is used for for all internal hystrix operations
-// including circuit health checks and metrics sent to the hystrix dashboard.
-//
-// Metric Collectors do not need Mutexes as they are updated by circuits within a locked context.
-type DefaultMetricCollector struct {
-	mutex *sync.RWMutex
+type (
+	// DefaultMetricCollector holds information about the circuit state.
+	// This implementation of MetricCollector is the canonical source of information about the circuit.
+	// It is used for for all internal hystrix operations
+	// including circuit health checks and metrics sent to the hystrix dashboard.
+	//
+	// Metric Collectors do not need Mutexes as they are updated by circuits within a locked context.
+	DefaultMetricCollector struct {
+		mutex *sync.RWMutex
 
-	numRequests *rolling.Number
-	errors      *rolling.Number
+		numRequests *rolling.Number
+		errors      *rolling.Number
 
-	successes               *rolling.Number
-	failures                *rolling.Number
-	rejects                 *rolling.Number
-	shortCircuits           *rolling.Number
-	timeouts                *rolling.Number
-	contextCanceled         *rolling.Number
-	contextDeadlineExceeded *rolling.Number
+		successes               *rolling.Number
+		failures                *rolling.Number
+		rejects                 *rolling.Number
+		shortCircuits           *rolling.Number
+		timeouts                *rolling.Number
+		contextCanceled         *rolling.Number
+		contextDeadlineExceeded *rolling.Number
 
-	fallbackSuccesses *rolling.Number
-	fallbackFailures  *rolling.Number
-	totalDuration     *rolling.Timing
-	runDuration       *rolling.Timing
-}
+		fallbackSuccesses *rolling.Number
+		fallbackFailures  *rolling.Number
+		totalDuration     *rolling.Timing
+		runDuration       *rolling.Timing
+	}
+)
 
 func newDefaultMetricCollector(name string) MetricCollector {
 	m := &DefaultMetricCollector{}

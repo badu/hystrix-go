@@ -16,7 +16,7 @@ func TestSuccess(t *testing.T) {
 		defer Flush()
 
 		resultChan := make(chan int)
-		errChan := GoC(context.Background(), "", func(ctx context.Context) error {
+		errChan := GoWithContext(context.WithValue(context.Background(), "name", ""), func(ctx context.Context) error {
 			resultChan <- 1
 			return nil
 		}, nil)
@@ -41,7 +41,7 @@ func TestFallback(t *testing.T) {
 		defer Flush()
 
 		resultChan := make(chan int)
-		errChan := GoC(context.Background(), "", func(ctx context.Context) error {
+		errChan := GoWithContext(context.WithValue(context.Background(), "name", ""), func(ctx context.Context) error {
 			return fmt.Errorf("error")
 		}, func(ctx context.Context, err error) error {
 			if err.Error() == "error" {
@@ -73,7 +73,7 @@ func TestTimeout(t *testing.T) {
 		ConfigureCommand("", CommandConfig{Timeout: 100})
 
 		resultChan := make(chan int)
-		errChan := GoC(context.Background(), "", func(ctx context.Context) error {
+		errChan := GoWithContext(context.WithValue(context.Background(), "name", ""), func(ctx context.Context) error {
 			time.Sleep(1 * time.Second)
 			resultChan <- 1
 			return nil
@@ -99,7 +99,7 @@ func TestTimeoutEmptyFallback(t *testing.T) {
 		ConfigureCommand("", CommandConfig{Timeout: 100})
 
 		resultChan := make(chan int)
-		errChan := GoC(context.Background(), "", func(ctx context.Context) error {
+		errChan := GoWithContext(context.WithValue(context.Background(), "name", ""), func(ctx context.Context) error {
 			time.Sleep(1 * time.Second)
 			resultChan <- 1
 			return nil
@@ -136,7 +136,7 @@ func TestMaxConcurrent(t *testing.T) {
 			var good, bad int
 
 			for i := 0; i < 3; i++ {
-				errChan := GoC(context.Background(), "", run, nil)
+				errChan := GoWithContext(context.WithValue(context.Background(), "name", ""), run, nil)
 				time.Sleep(10 * time.Millisecond)
 
 				select {
@@ -166,7 +166,7 @@ func TestForceOpenCircuit(t *testing.T) {
 
 		cb.toggleForceOpen(true)
 
-		errChan := GoC(context.Background(), "", func(ctx context.Context) error {
+		errChan := GoWithContext(context.WithValue(context.Background(), "name", ""), func(ctx context.Context) error {
 			return nil
 		}, nil)
 
@@ -186,7 +186,7 @@ func TestForceOpenCircuit(t *testing.T) {
 func TestNilFallbackRunError(t *testing.T) {
 	Convey("when your run function returns an error and you have no fallback", t, func() {
 		defer Flush()
-		errChan := GoC(context.Background(), "", func(ctx context.Context) error {
+		errChan := GoWithContext(context.WithValue(context.Background(), "name", ""), func(ctx context.Context) error {
 			return fmt.Errorf("run_error")
 		}, nil)
 
@@ -201,7 +201,7 @@ func TestNilFallbackRunError(t *testing.T) {
 func TestFailedFallback(t *testing.T) {
 	Convey("when your run and fallback functions return an error", t, func() {
 		defer Flush()
-		errChan := GoC(context.Background(), "", func(ctx context.Context) error {
+		errChan := GoWithContext(context.WithValue(context.Background(), "name", ""), func(ctx context.Context) error {
 			return fmt.Errorf("run_error")
 		}, func(ctx context.Context, err error) error {
 			return fmt.Errorf("fallback_error")
@@ -224,7 +224,7 @@ func TestCloseCircuitAfterSuccess(t *testing.T) {
 		cb.setOpen()
 
 		Convey("commands immediately following should short-circuit", func() {
-			errChan := GoC(context.Background(), "", func(ctx context.Context) error {
+			errChan := GoWithContext(context.WithValue(context.Background(), "name", ""), func(ctx context.Context) error {
 				return nil
 			}, nil)
 
@@ -235,7 +235,7 @@ func TestCloseCircuitAfterSuccess(t *testing.T) {
 			time.Sleep(6 * time.Second)
 
 			done := make(chan bool, 1)
-			GoC(context.Background(), "", func(ctx context.Context) error {
+			GoWithContext(context.WithValue(context.Background(), "name", ""), func(ctx context.Context) error {
 				done <- true
 				return nil
 			}, nil)
@@ -255,7 +255,7 @@ func TestFailAfterTimeout(t *testing.T) {
 		ConfigureCommand("", CommandConfig{Timeout: 10})
 
 		out := make(chan struct{}, 2)
-		errChan := GoC(context.Background(), "", func(ctx context.Context) error {
+		errChan := GoWithContext(context.WithValue(context.Background(), "name", ""), func(ctx context.Context) error {
 			time.Sleep(50 * time.Millisecond)
 			return fmt.Errorf("foo")
 		}, func(ctx context.Context, err error) error {
@@ -289,7 +289,7 @@ func TestSlowFallbackOpenCircuit(t *testing.T) {
 		out := make(chan struct{}, 2)
 
 		Convey("when the command short circuits", func() {
-			GoC(context.Background(), "", func(ctx context.Context) error {
+			GoWithContext(context.WithValue(context.Background(), "name", ""), func(ctx context.Context) error {
 				return nil
 			}, func(ctx context.Context, err error) error {
 				time.Sleep(100 * time.Millisecond)
@@ -323,7 +323,7 @@ func TestFallbackAfterRejected(t *testing.T) {
 		Convey("executing a successful fallback function due to rejection", func() {
 			runChan := make(chan bool, 1)
 			fallbackChan := make(chan bool, 1)
-			GoC(context.Background(), "", func(ctx context.Context) error {
+			GoWithContext(context.WithValue(context.Background(), "name", ""), func(ctx context.Context) error {
 				// if run executes after fallback, this will panic due to sending to a closed channel
 				runChan <- true
 				close(fallbackChan)
@@ -346,7 +346,7 @@ func TestReturnTicket_QuickCheck(t *testing.T) {
 	compareTicket := func() bool {
 		defer Flush()
 		ConfigureCommand("", CommandConfig{Timeout: 2})
-		errChan := GoC(context.Background(), "", func(ctx context.Context) error {
+		errChan := GoWithContext(context.WithValue(context.Background(), "name", ""), func(ctx context.Context) error {
 			c := make(chan struct{})
 			<-c // should block
 			return nil
@@ -359,7 +359,7 @@ func TestReturnTicket_QuickCheck(t *testing.T) {
 	}
 
 	Convey("with a run command that doesn't return", t, func() {
-		Convey("checking many times that after GoC(context.Background(), ), the ticket returns to the pool after the timeout", func() {
+		Convey("checking many times that after GoWithContext(context.Background(), ), the ticket returns to the pool after the timeout", func() {
 			err := quick.Check(compareTicket, nil)
 			So(err, ShouldBeNil)
 		})
@@ -372,13 +372,13 @@ func TestReturnTicket(t *testing.T) {
 
 		ConfigureCommand("", CommandConfig{Timeout: 10})
 
-		errChan := GoC(context.Background(), "", func(ctx context.Context) error {
+		errChan := GoWithContext(context.WithValue(context.Background(), "name", ""), func(ctx context.Context) error {
 			c := make(chan struct{})
 			<-c // should block
 			return nil
 		}, nil)
 
-		Convey("after GoC(context.Background(), ), the ticket returns to the pool after the timeout", func() {
+		Convey("after GoWithContext(context.Background(), ), the ticket returns to the pool after the timeout", func() {
 			err := <-errChan
 			So(err, ShouldResemble, ErrTimeout)
 
@@ -411,7 +411,7 @@ func TestContextHandling(t *testing.T) {
 		}
 
 		Convey("with a valid context", func() {
-			errChan := GoC(context.Background(), "", run, nil)
+			errChan := GoWithContext(context.WithValue(context.Background(), "name", ""), run, nil)
 			time.Sleep(25 * time.Millisecond)
 			So((<-errChan).Error(), ShouldEqual, ErrTimeout.Error())
 			So(cb.metrics.DefaultCollector().NumRequests().Sum(time.Now()), ShouldEqual, 1)
@@ -422,7 +422,7 @@ func TestContextHandling(t *testing.T) {
 		})
 
 		Convey("with a valid context and a fallback", func() {
-			errChan := GoC(context.Background(), "", run, fallback)
+			errChan := GoWithContext(context.WithValue(context.Background(), "name", ""), run, fallback)
 			time.Sleep(25 * time.Millisecond)
 			So(len(errChan), ShouldEqual, 0)
 			So(cb.metrics.DefaultCollector().NumRequests().Sum(time.Now()), ShouldEqual, 1)
@@ -434,8 +434,9 @@ func TestContextHandling(t *testing.T) {
 		})
 
 		Convey("with a context timeout", func() {
-			testCtx, cancel := context.WithTimeout(context.Background(), 5*time.Millisecond)
-			errChan := GoC(testCtx, "", run, nil)
+			a, cancel := context.WithTimeout(context.Background(), 5*time.Millisecond)
+			testCtx := context.WithValue(a, "name", "")
+			errChan := GoWithContext(testCtx, run, nil)
 			time.Sleep(25 * time.Millisecond)
 			So((<-errChan).Error(), ShouldEqual, context.DeadlineExceeded.Error())
 			So(cb.metrics.DefaultCollector().NumRequests().Sum(time.Now()), ShouldEqual, 1)
@@ -447,8 +448,9 @@ func TestContextHandling(t *testing.T) {
 		})
 
 		Convey("with a context timeout and a fallback", func() {
-			testCtx, cancel := context.WithTimeout(context.Background(), 5*time.Millisecond)
-			errChan := GoC(testCtx, "", run, fallback)
+			a, cancel := context.WithTimeout(context.Background(), 5*time.Millisecond)
+			testCtx := context.WithValue(a, "name", "")
+			errChan := GoWithContext(testCtx, run, fallback)
 			time.Sleep(25 * time.Millisecond)
 			So(len(errChan), ShouldEqual, 0)
 			So(cb.metrics.DefaultCollector().NumRequests().Sum(time.Now()), ShouldEqual, 1)
@@ -461,8 +463,9 @@ func TestContextHandling(t *testing.T) {
 		})
 
 		Convey("with a canceled context", func() {
-			testCtx, cancel := context.WithCancel(context.Background())
-			errChan := GoC(testCtx, "", run, nil)
+			a, cancel := context.WithCancel(context.Background())
+			testCtx := context.WithValue(a, "name", "")
+			errChan := GoWithContext(testCtx, run, nil)
 			time.Sleep(5 * time.Millisecond)
 			cancel()
 			time.Sleep(20 * time.Millisecond)
@@ -475,8 +478,9 @@ func TestContextHandling(t *testing.T) {
 		})
 
 		Convey("with a canceled context and a fallback", func() {
-			testCtx, cancel := context.WithCancel(context.Background())
-			errChan := GoC(testCtx, "", run, fallback)
+			a, cancel := context.WithCancel(context.Background())
+			testCtx := context.WithValue(a, "name", "")
+			errChan := GoWithContext(testCtx, run, fallback)
 			time.Sleep(5 * time.Millisecond)
 			cancel()
 			time.Sleep(20 * time.Millisecond)
@@ -503,7 +507,7 @@ func TestDoC(t *testing.T) {
 		}
 
 		Convey("the run function is executed", func() {
-			err := DoC(context.Background(), "", run, nil)
+			err := DoWithContext(context.WithValue(context.Background(), "name", ""), run, nil)
 			So(err, ShouldBeNil)
 			So(<-out, ShouldEqual, true)
 		})
@@ -517,7 +521,7 @@ func TestDoC(t *testing.T) {
 		}
 
 		Convey("with no fallback", func() {
-			err := DoC(context.Background(), "", run, nil)
+			err := DoWithContext(context.WithValue(context.Background(), "name", ""), run, nil)
 			Convey("the error is returned", func() {
 				So(err.Error(), ShouldEqual, "i failed")
 			})
@@ -530,7 +534,7 @@ func TestDoC(t *testing.T) {
 				return nil
 			}
 
-			err := DoC(context.Background(), "", run, fallback)
+			err := DoWithContext(context.WithValue(context.Background(), "name", ""), run, fallback)
 
 			Convey("the fallback is executed", func() {
 				So(err, ShouldBeNil)
@@ -543,7 +547,7 @@ func TestDoC(t *testing.T) {
 				return fmt.Errorf("fallback failed")
 			}
 
-			err := DoC(context.Background(), "", run, fallback)
+			err := DoWithContext(context.WithValue(context.Background(), "name", ""), run, fallback)
 
 			Convey("both errors are returned", func() {
 				So(err.Error(), ShouldEqual, "fallback failed with 'fallback failed'. run error was 'i failed'")
@@ -556,7 +560,7 @@ func TestDoC(t *testing.T) {
 
 		ConfigureCommand("", CommandConfig{Timeout: 10})
 
-		err := DoC(context.Background(), "", func(ctx context.Context) error {
+		err := DoWithContext(context.WithValue(context.Background(), "name", ""), func(ctx context.Context) error {
 			time.Sleep(100 * time.Millisecond)
 			return nil
 		}, nil)

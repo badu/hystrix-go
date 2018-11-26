@@ -8,20 +8,22 @@ import (
 	"github.com/afex/hystrix-go/hystrix/rolling"
 )
 
-type commandExecution struct {
-	Types            []string      `json:"types"`
-	Start            time.Time     `json:"start_time"`
-	RunDuration      time.Duration `json:"run_duration"`
-	ConcurrencyInUse float64       `json:"concurrency_inuse"`
-}
+type (
+	commandExecution struct {
+		Types            []string      `json:"types"`
+		Start            time.Time     `json:"start_time"`
+		RunDuration      time.Duration `json:"run_duration"`
+		ConcurrencyInUse float64       `json:"concurrency_inuse"`
+	}
 
-type metricExchange struct {
-	Name    string
-	Updates chan *commandExecution
-	Mutex   *sync.RWMutex
+	metricExchange struct {
+		Name    string
+		Updates chan *commandExecution
+		Mutex   *sync.RWMutex
 
-	metricCollectors []metricCollector.MetricCollector
-}
+		metricCollectors []metricCollector.MetricCollector
+	}
+)
 
 func newMetricExchange(name string) *metricExchange {
 	m := &metricExchange{}

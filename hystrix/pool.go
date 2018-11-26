@@ -1,11 +1,13 @@
 package hystrix
 
-type executorPool struct {
-	Name    string
-	Metrics *poolMetrics
-	Max     int
-	Tickets chan *struct{}
-}
+type (
+	executorPool struct {
+		Name    string
+		Metrics *poolMetrics
+		Max     int
+		Tickets chan *struct{}
+	}
+)
 
 func newExecutorPool(name string) *executorPool {
 	p := &executorPool{}

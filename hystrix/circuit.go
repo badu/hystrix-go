@@ -7,18 +7,20 @@ import (
 	"time"
 )
 
-// CircuitBreaker is created for each ExecutorPool to track whether requests
-// should be attempted, or rejected if the Health of the circuit is too low.
-type CircuitBreaker struct {
-	Name                   string
-	open                   bool
-	forceOpen              bool
-	mutex                  *sync.RWMutex
-	openedOrLastTestedTime int64
+type (
+	// CircuitBreaker is created for each ExecutorPool to track whether requests
+	// should be attempted, or rejected if the Health of the circuit is too low.
+	CircuitBreaker struct {
+		Name                   string
+		open                   bool
+		forceOpen              bool
+		mutex                  *sync.RWMutex
+		openedOrLastTestedTime int64
 
-	executorPool *executorPool
-	metrics      *metricExchange
-}
+		executorPool *executorPool
+		metrics      *metricExchange
+	}
+)
 
 var (
 	circuitBreakersMutex *sync.RWMutex
@@ -77,34 +79,34 @@ func newCircuitBreaker(name string) *CircuitBreaker {
 
 // toggleForceOpen allows manually causing the fallback logic for all instances
 // of a given command.
-func (circuit *CircuitBreaker) toggleForceOpen(toggle bool) error {
-	circuit, _, err := GetCircuit(circuit.Name)
+func (c *CircuitBreaker) toggleForceOpen(toggle bool) error {
+	c, _, err := GetCircuit(c.Name)
 	if err != nil {
 		return err
 	}
 
-	circuit.forceOpen = toggle
+	c.forceOpen = toggle
 	return nil
 }
 
 // IsOpen is called before any Command execution to check whether or
 // not it should be attempted. An "open" circuit means it is disabled.
-func (circuit *CircuitBreaker) IsOpen() bool {
-	circuit.mutex.RLock()
-	o := circuit.forceOpen || circuit.open
-	circuit.mutex.RUnlock()
+func (c *CircuitBreaker) IsOpen() bool {
+	c.mutex.RLock()
+	o := c.forceOpen || c.open
+	c.mutex.RUnlock()
 
 	if o {
 		return true
 	}
 
-	if uint64(circuit.metrics.Requests().Sum(time.Now())) < getSettings(circuit.Name).RequestVolumeThreshold {
+	if uint64(c.metrics.Requests().Sum(time.Now())) < getSettings(c.Name).RequestVolumeThreshold {
 		return false
 	}
 
-	if !circuit.metrics.IsHealthy(time.Now()) {
+	if !c.metrics.IsHealthy(time.Now()) {
 		// too many failures, open the circuit
-		circuit.setOpen()
+		c.setOpen()
 		return true
 	}
 
@@ -114,20 +116,20 @@ func (circuit *CircuitBreaker) IsOpen() bool {
 // AllowRequest is checked before a command executes, ensuring that circuit state and metric health allow it.
 // When the circuit is open, this call will occasionally return true to measure whether the external service
 // has recovered.
-func (circuit *CircuitBreaker) AllowRequest() bool {
-	return !circuit.IsOpen() || circuit.allowSingleTest()
+func (c *CircuitBreaker) AllowRequest() bool {
+	return !c.IsOpen() || c.allowSingleTest()
 }
 
-func (circuit *CircuitBreaker) allowSingleTest() bool {
-	circuit.mutex.RLock()
-	defer circuit.mutex.RUnlock()
+func (c *CircuitBreaker) allowSingleTest() bool {
+	c.mutex.RLock()
+	defer c.mutex.RUnlock()
 
 	now := time.Now().UnixNano()
-	openedOrLastTestedTime := atomic.LoadInt64(&circuit.openedOrLastTestedTime)
-	if circuit.open && now > openedOrLastTestedTime+getSettings(circuit.Name).SleepWindow.Nanoseconds() {
-		swapped := atomic.CompareAndSwapInt64(&circuit.openedOrLastTestedTime, openedOrLastTestedTime, now)
+	openedOrLastTestedTime := atomic.LoadInt64(&c.openedOrLastTestedTime)
+	if c.open && now > openedOrLastTestedTime+getSettings(c.Name).SleepWindow.Nanoseconds() {
+		swapped := atomic.CompareAndSwapInt64(&c.openedOrLastTestedTime, openedOrLastTestedTime, now)
 		if swapped {
-			log.Printf("hystrix-go: allowing single test to possibly close circuit %v", circuit.Name)
+			log.Printf("hystrix-go: allowing single test to possibly close circuit %v", c.Name)
 		}
 		return swapped
 	}
@@ -135,61 +137,61 @@ func (circuit *CircuitBreaker) allowSingleTest() bool {
 	return false
 }
 
-func (circuit *CircuitBreaker) setOpen() {
-	circuit.mutex.Lock()
-	defer circuit.mutex.Unlock()
+func (c *CircuitBreaker) setOpen() {
+	c.mutex.Lock()
+	defer c.mutex.Unlock()
 
-	if circuit.open {
+	if c.open {
 		return
 	}
 
-	log.Printf("hystrix-go: opening circuit %v", circuit.Name)
+	log.Printf("hystrix-go: opening circuit %v", c.Name)
 
-	circuit.openedOrLastTestedTime = time.Now().UnixNano()
-	circuit.open = true
+	c.openedOrLastTestedTime = time.Now().UnixNano()
+	c.open = true
 }
 
-func (circuit *CircuitBreaker) setClose() {
-	circuit.mutex.Lock()
-	defer circuit.mutex.Unlock()
+func (c *CircuitBreaker) setClose() {
+	c.mutex.Lock()
+	defer c.mutex.Unlock()
 
-	if !circuit.open {
+	if !c.open {
 		return
 	}
 
-	log.Printf("hystrix-go: closing circuit %v", circuit.Name)
+	log.Printf("hystrix-go: closing circuit %v", c.Name)
 
-	circuit.open = false
-	circuit.metrics.Reset()
+	c.open = false
+	c.metrics.Reset()
 }
 
 // ReportEvent records command metrics for tracking recent error rates and exposing data to the dashboard.
-func (circuit *CircuitBreaker) ReportEvent(eventTypes []string, start time.Time, runDuration time.Duration) error {
+func (c *CircuitBreaker) ReportEvent(eventTypes []string, start time.Time, runDuration time.Duration) error {
 	if len(eventTypes) == 0 {
 		return fmt.Errorf("no event types sent for metrics")
 	}
 
-	circuit.mutex.RLock()
-	o := circuit.open
-	circuit.mutex.RUnlock()
+	c.mutex.RLock()
+	o := c.open
+	c.mutex.RUnlock()
 	if eventTypes[0] == "success" && o {
-		circuit.setClose()
+		c.setClose()
 	}
 
 	var concurrencyInUse float64
-	if circuit.executorPool.Max > 0 {
-		concurrencyInUse = float64(circuit.executorPool.ActiveCount()) / float64(circuit.executorPool.Max)
+	if c.executorPool.Max > 0 {
+		concurrencyInUse = float64(c.executorPool.ActiveCount()) / float64(c.executorPool.Max)
 	}
 
 	select {
-	case circuit.metrics.Updates <- &commandExecution{
+	case c.metrics.Updates <- &commandExecution{
 		Types:            eventTypes,
 		Start:            start,
 		RunDuration:      runDuration,
 		ConcurrencyInUse: concurrencyInUse,
 	}:
 	default:
-		return CircuitError{Message: fmt.Sprintf("metrics channel (%v) is at capacity", circuit.Name)}
+		return CircuitError{Message: fmt.Sprintf("metrics channel (%v) is at capacity", c.Name)}
 	}
 
 	return nil

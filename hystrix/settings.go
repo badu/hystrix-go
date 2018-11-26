@@ -18,28 +18,30 @@ var (
 	DefaultErrorPercentThreshold = 50
 	// DefaultLogger is the default logger that will be used in the Hystrix package. By default prints nothing.
 	DefaultLogger = NoopLogger{}
+
+	circuitSettings map[string]*Settings
+	settingsMutex   *sync.RWMutex
+	log             logger
 )
 
-type Settings struct {
-	Timeout                time.Duration
-	MaxConcurrentRequests  int
-	RequestVolumeThreshold uint64
-	SleepWindow            time.Duration
-	ErrorPercentThreshold  int
-}
+type (
+	Settings struct {
+		Timeout                time.Duration
+		MaxConcurrentRequests  int
+		RequestVolumeThreshold uint64
+		SleepWindow            time.Duration
+		ErrorPercentThreshold  int
+	}
 
-// CommandConfig is used to tune circuit settings at runtime
-type CommandConfig struct {
-	Timeout                int `json:"timeout"`
-	MaxConcurrentRequests  int `json:"max_concurrent_requests"`
-	RequestVolumeThreshold int `json:"request_volume_threshold"`
-	SleepWindow            int `json:"sleep_window"`
-	ErrorPercentThreshold  int `json:"error_percent_threshold"`
-}
-
-var circuitSettings map[string]*Settings
-var settingsMutex *sync.RWMutex
-var log logger
+	// CommandConfig is used to tune circuit settings at runtime
+	CommandConfig struct {
+		Timeout                int `json:"timeout"`
+		MaxConcurrentRequests  int `json:"max_concurrent_requests"`
+		RequestVolumeThreshold int `json:"request_volume_threshold"`
+		SleepWindow            int `json:"sleep_window"`
+		ErrorPercentThreshold  int `json:"error_percent_threshold"`
+	}
+)
 
 func init() {
 	circuitSettings = make(map[string]*Settings)
